@@ -8,10 +8,8 @@ class CoupleFootprintApp {
         this.categories = [
             { id: 'restaurant', name: '맛집', emoji: '🍽️' },
             { id: 'cafe', name: '카페', emoji: '☕' },
-            { id: 'park', name: '공원', emoji: '🌳' },
-            { id: 'cinema', name: '영화관', emoji: '🎬' },
-            { id: 'shopping', name: '쇼핑', emoji: '🛍️' },
-            { id: 'culture', name: '문화시설', emoji: '🎨' },
+            { id: 'travel', name: '여행', emoji: '✈️' },
+            { id: 'culture', name: '문화', emoji: '🎨' },
             { id: 'etc', name: '기타', emoji: '📍' }
         ];
 
@@ -27,11 +25,11 @@ class CoupleFootprintApp {
     }
 
     setupEventListeners() {
-        // Tab navigation
-        const tabButtons = document.querySelectorAll('.tab-button');
+        // Tab navigation (원형 버튼 포함)
+        const tabButtons = document.querySelectorAll('.tab-button, .tab-button-circle');
         tabButtons.forEach(button => {
             button.addEventListener('click', (e) => {
-                this.switchTab(e.target.closest('.tab-button').dataset.view);
+                this.switchTab(e.target.closest('.tab-button, .tab-button-circle').dataset.view);
             });
         });
 
@@ -101,8 +99,8 @@ class CoupleFootprintApp {
     switchTab(view) {
         this.currentView = view;
         
-        // Update tab buttons
-        document.querySelectorAll('.tab-button').forEach(button => {
+        // Update tab buttons (원형 버튼 포함)
+        document.querySelectorAll('.tab-button, .tab-button-circle').forEach(button => {
             button.classList.toggle('active', button.dataset.view === view);
         });
 
