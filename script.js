@@ -925,7 +925,7 @@ function showAnniversarySuccessMessage() {
 }
 
 // API 연동 함수들
-const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '/.netlify/functions';
 
 // 커플 코드 생성
 async function createCoupleCode() {
