@@ -5,8 +5,6 @@ class CoupleFootprintApp {
         this.activeCategories = new Set();
         this.searchQuery = '';
         this.locations = [];
-        this.coupleCode = '';
-        
         this.categories = [
             { id: 'restaurant', name: '맛집', emoji: '🍽️' },
             { id: 'cafe', name: '카페', emoji: '☕' },
@@ -64,9 +62,6 @@ class CoupleFootprintApp {
 
         // Modal functionality
         this.setupModal();
-
-        // Couple code functionality
-        this.setupCoupleCodeHandlers();
     }
 
     setupTabs() {
@@ -491,8 +486,7 @@ class CoupleFootprintApp {
             rating: parseInt(formData.get('rating') || document.getElementById('rating').value),
             memo: formData.get('memo') || document.getElementById('memo').value,
             photos: [], // Will be populated after photo upload
-            createdAt: new Date().toISOString(),
-            coupleCode: this.coupleCode
+            createdAt: new Date().toISOString()
         };
 
         // Validate required fields
@@ -569,55 +563,14 @@ class CoupleFootprintApp {
         }, 3000);
     }
 
-    setupCoupleCodeHandlers() {
-        const createBtn = document.getElementById('createCoupleCode');
-        const enterBtn = document.getElementById('enterCoupleCode');
-        
-        if (createBtn) {
-            createBtn.addEventListener('click', () => this.createCoupleCode());
-        }
-        
-        if (enterBtn) {
-            enterBtn.addEventListener('click', () => this.enterCoupleCode());
-        }
-    }
-
-    createCoupleCode() {
-        const code = this.generateCoupleCode();
-        this.coupleCode = code;
-        this.updateCoupleCodeDisplay();
-        this.showNotification(`커플 코드가 생성되었습니다: ${code}`, 'success');
-    }
-
-    enterCoupleCode() {
-        const code = prompt('커플 코드를 입력해주세요:');
-        if (code && code.trim()) {
-            this.coupleCode = code.trim();
-            this.updateCoupleCodeDisplay();
-            this.showNotification('커플 코드가 설정되었습니다! 💕', 'success');
-        }
-    }
-
-    generateCoupleCode() {
-        return Math.random().toString(36).substr(2, 8).toUpperCase();
-    }
-
-    updateCoupleCodeDisplay() {
-        const display = document.getElementById('coupleCodeDisplay');
-        if (display && this.coupleCode) {
-            display.textContent = `💕 커플 코드: ${this.coupleCode}`;
-        }
-    }
 
     loadData() {
         // Load data from localStorage or API
-        const savedData = localStorage.getItem('coupleFootprintData');
+        const savedData = localStorage.getItem('footprintData');
         if (savedData) {
             try {
                 const data = JSON.parse(savedData);
                 this.locations = data.locations || [];
-                this.coupleCode = data.coupleCode || '';
-                this.updateCoupleCodeDisplay();
             } catch (error) {
                 console.error('Error loading data:', error);
             }
@@ -628,12 +581,11 @@ class CoupleFootprintApp {
         // Save data to localStorage
         const data = {
             locations: this.locations,
-            coupleCode: this.coupleCode,
             lastUpdated: new Date().toISOString()
         };
         
         try {
-            localStorage.setItem('coupleFootprintData', JSON.stringify(data));
+            localStorage.setItem('footprintData', JSON.stringify(data));
         } catch (error) {
             console.error('Error saving data:', error);
         }
