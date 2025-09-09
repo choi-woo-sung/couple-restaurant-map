@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💕 커플 FootPrint</title>
+    <link rel="stylesheet" href="style_new.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- 모던 헤더 및 네비게이션 -->
+    <header class="modern-header">
+        <div class="header-container">
+            <!-- 앱 로고 및 타이틀 -->
+            <div class="app-brand">
+                <div class="brand-icon">💕</div>
+                <div class="brand-text">
+                    <h1>커플 FootPrint</h1>
+                    <p>함께 만드는 추억의 지도</p>
+                </div>
+            </div>
+
+            <!-- 커플 코드 정보 -->
+            <div class="couple-status">
+                <div id="coupleCodeDisplay" class="couple-code-badge">
+                    💫 커플 코드를 설정해주세요
+                </div>
+                <div class="couple-actions">
+                    <button id="createCoupleCode" class="btn-ghost">새 코드</button>
+                    <button id="enterCoupleCode" class="btn-ghost">코드 입력</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 메인 네비게이션 -->
+    <nav class="main-navigation">
+        <div class="nav-container">
+            <!-- 메인 탭 -->
+            <div class="main-tabs">
+                <button id="mapViewTab" class="tab-button active" data-view="map">
+                    <span class="tab-icon">🗺️</span>
+                    <span class="tab-text">지도 뷰</span>
+                </button>
+                <button id="timelineViewTab" class="tab-button" data-view="timeline">
+                    <span class="tab-icon">📅</span>
+                    <span class="tab-text">타임라인</span>
+                </button>
+            </div>
+
+            <!-- 검색바 -->
+            <div class="search-container">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="mainSearchInput" placeholder="장소를 검색해보세요...">
+                </div>
+                <button id="addLocationBtn" class="btn-primary">
+                    <span>+</span>
+                    <span>위치 추가</span>
+                </button>
+            </div>
+
+            <!-- 카테고리 필터 -->
+            <div class="category-filters">
+                <div class="category-chips">
+                    <button class="category-chip active" data-category="all">
+                        <span>🌟</span>
+                        <span>전체</span>
+                    </button>
+                    <button class="category-chip" data-category="restaurant">
+                        <span>🍽️</span>
+                        <span>맛집</span>
+                    </button>
+                    <button class="category-chip" data-category="cafe">
+                        <span>☕</span>
+                        <span>카페</span>
+                    </button>
+                    <button class="category-chip" data-category="park">
+                        <span>🌳</span>
+                        <span>공원</span>
+                    </button>
+                    <button class="category-chip" data-category="cinema">
+                        <span>🎬</span>
+                        <span>영화관</span>
+                    </button>
+                    <button class="category-chip" data-category="shopping">
+                        <span>🛍️</span>
+                        <span>쇼핑</span>
+                    </button>
+                    <button class="category-chip" data-category="culture">
+                        <span>🎨</span>
+                        <span>문화시설</span>
+                    </button>
+                    <button class="category-chip" data-category="etc">
+                        <span>📍</span>
+                        <span>기타</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 메인 컨텐츠 -->
+    <main class="main-content">
+        <!-- 지도 뷰 -->
+        <div id="mapView" class="view-container active">
+            <div class="map-section">
+                <div class="map-header">
+                    <h2>우리의 추억 지도</h2>
+                    <div class="map-stats">
+                        <span id="locationCount" class="stat-badge">0개 장소</span>
+                        <span id="averageRating" class="stat-badge">평점 -</span>
+                    </div>
+                </div>
+                <div class="map-container">
+                    <div id="map" class="map-area"></div>
+                </div>
+            </div>
+
+            <!-- 퀵 액션 패널 -->
+            <div class="quick-actions-panel">
+                <div class="quick-stats">
+                    <div class="stat-item">
+                        <div class="stat-number" id="totalVisits">0</div>
+                        <div class="stat-label">총 방문</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="favoriteCategory">-</div>
+                        <div class="stat-label">선호 카테고리</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="recentVisits">0</div>
+                        <div class="stat-label">이번 달</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 타임라인 뷰 -->
+        <div id="timelineView" class="view-container">
+            <div class="timeline-section">
+                <div class="timeline-header">
+                    <h2>추억 타임라인</h2>
+                    <div class="timeline-controls">
+                        <button class="btn-secondary" id="timelineFilterBtn">필터</button>
+                        <select id="timelinePeriod" class="period-select">
+                            <option value="all">전체 기간</option>
+                            <option value="year">이번 해</option>
+                            <option value="month">이번 달</option>
+                            <option value="week">이번 주</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="timeline-container">
+                    <div id="timelineContent" class="timeline-content">
+                        <div class="empty-timeline">
+                            <div class="empty-icon">📝</div>
+                            <h3>아직 기록된 추억이 없어요</h3>
+                            <p>첫 번째 장소를 추가해보세요!</p>
+                            <button class="btn-primary" onclick="document.getElementById('addLocationBtn').click()">
+                                첫 추억 기록하기
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 위치 추가 모달 -->
+    <div id="addLocationModal" class="modal-overlay">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3>새로운 추억 기록하기</h3>
+                <button class="modal-close" id="closeModal">&times;</button>
+            </div>
+            <form id="locationForm" class="modal-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="locationName">장소명</label>
+                        <input type="text" id="locationName" required placeholder="어디에 갔나요?">
+                    </div>
+                    <div class="form-group">
+                        <label for="locationCategory">카테고리</label>
+                        <select id="locationCategory" required>
+                            <option value="">선택하세요</option>
+                            <option value="restaurant">🍽️ 맛집</option>
+                            <option value="cafe">☕ 카페</option>
+                            <option value="park">🌳 공원</option>
+                            <option value="cinema">🎬 영화관</option>
+                            <option value="shopping">🛍️ 쇼핑</option>
+                            <option value="culture">🎨 문화시설</option>
+                            <option value="etc">📍 기타</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="locationAddress">주소</label>
+                    <input type="text" id="locationAddress" required placeholder="주소를 입력하세요">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="visitDate">방문 날짜</label>
+                        <input type="date" id="visitDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="rating">평점</label>
+                        <select id="rating" required>
+                            <option value="">평가하기</option>
+                            <option value="5">⭐⭐⭐⭐⭐ (5점)</option>
+                            <option value="4">⭐⭐⭐⭐ (4점)</option>
+                            <option value="3">⭐⭐⭐ (3점)</option>
+                            <option value="2">⭐⭐ (2점)</option>
+                            <option value="1">⭐ (1점)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="memo">추억 메모</label>
+                    <textarea id="memo" placeholder="함께한 특별한 순간을 기록해보세요..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="photos">사진 추가</label>
+                    <input type="file" id="photos" accept="image/*" multiple>
+                    <div id="photoPreview" class="photo-preview-grid"></div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" id="cancelBtn">취소</button>
+                    <button type="submit" class="btn-primary">💕 추억 저장하기</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 스크립트 -->
+    <script src="script_new.js"></script>
+    <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=YOUR_KAKAO_API_KEY&libraries=services"></script>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD4ATInAnGnV0EXNOzYWCnRaTfTQJnQgXk&callback=initMap&libraries=places"></script>
+</body>
+</html>
