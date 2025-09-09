@@ -6,6 +6,15 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// HTTPS 강제 리다이렉트 (프로덕션 환경)
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV === 'production' && req.header('x-forwarded-proto') !== 'https') {
+    res.redirect(`https://${req.header('host')}${req.url}`);
+  } else {
+    next();
+  }
+});
+
 // 미들웨어 설정
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
