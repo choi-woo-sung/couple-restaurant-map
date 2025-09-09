@@ -65,21 +65,8 @@ class CoupleFootprintApp {
     }
 
     setupTabs() {
-        // Create tab container with smooth indicator
-        const tabContainer = document.querySelector('.main-tabs');
-        if (tabContainer) {
-            const tabWrapper = document.createElement('div');
-            tabWrapper.className = 'tab-container';
-            tabContainer.appendChild(tabWrapper);
-
-            const mapTab = document.getElementById('mapViewTab');
-            const timelineTab = document.getElementById('timelineViewTab');
-            
-            if (mapTab && timelineTab) {
-                tabWrapper.appendChild(mapTab);
-                tabWrapper.appendChild(timelineTab);
-            }
-        }
+        // Tab functionality is now handled in the header
+        // No need for additional setup since tabs are already in HTML
     }
 
     setupCategoryFilters() {
