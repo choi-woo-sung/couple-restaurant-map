@@ -6,8 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "build": "echo 'Static files ready'",
-    "vercel-build": "echo 'Build complete'"
+    "build": "npm install"
   },
   "dependencies": {
     "express": "^4.19.2",
