@@ -507,6 +507,38 @@ body {
   transition: transform 0.1s ease;
 }
 
+/* 마커 클릭 시 하트 파티클 애니메이션 */
+@keyframes heartFloat {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 1;
+  }
+  50% {
+    transform: translate(-50%, -80px) scale(1.2);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(-50%, -120px) scale(0.8);
+    opacity: 0;
+  }
+}
+
+/* 검색 성공 이펙트 애니메이션 */
+@keyframes searchEffect {
+  0% {
+    transform: translate(-50%, -50%) scale(0) rotate(0deg);
+    opacity: 1;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.5) rotate(180deg);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(0.5) rotate(360deg);
+    opacity: 0;
+  }
+}
+
 /* Content area tab buttons (keeping for JavaScript compatibility) */
 .main-content .tab-button {
   position: relative;

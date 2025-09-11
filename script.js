@@ -13,6 +13,20 @@ class CoupleFootprintApp {
             { id: 'etc', name: '기타', emoji: '📍' }
         ];
 
+        // 지도 관련 속성
+        this.map = null;
+        this.markers = [];
+        this.polylines = [];
+        this.dayColors = {
+            0: '#ff69b4', // 일요일 - 헬로키티 핑크
+            1: '#4285f4', // 월요일 - 파랑
+            2: '#34a853', // 화요일 - 초록
+            3: '#fbbc04', // 수요일 - 노랑
+            4: '#ff6d01', // 목요일 - 주황
+            5: '#ea4335', // 금요일 - 빨강
+            6: '#9c27b0'  // 토요일 - 보라
+        };
+
         this.init();
     }
 
@@ -22,6 +36,7 @@ class CoupleFootprintApp {
         this.setupCategoryFilters();
         this.loadData();
         this.updateUI();
+        this.initMap();
     }
 
     setupEventListeners() {
@@ -595,6 +610,673 @@ class CoupleFootprintApp {
         this.updateCategoryChips();
         this.filterLocations();
         this.updateStats(this.locations);
+        
+        // 지도가 초기화되었으면 마커 업데이트
+        if (this.map) {
+            this.displayAllMarkers();
+        }
+    }
+
+    // 🗺️ 지도 초기화
+    initMap() {
+        const mapContainer = document.getElementById('map');
+        if (!mapContainer) {
+            console.error('지도 컨테이너를 찾을 수 없습니다.');
+            return;
+        }
+
+        // Kakao Maps API가 로드되었는지 확인
+        if (typeof kakao === 'undefined' || !kakao.maps) {
+            console.error('Kakao Maps API가 로드되지 않았습니다.');
+            return;
+        }
+
+        // 지도 옵션 설정
+        const mapOption = {
+            center: new kakao.maps.LatLng(37.5665, 126.9780), // 서울시청 기본 위치
+            level: 8 // 확대 레벨 (1~14)
+        };
+
+        // 지도 생성
+        this.map = new kakao.maps.Map(mapContainer, mapOption);
+
+        // 현재 위치 가져기기
+        this.getCurrentLocation();
+
+        // Places 서비스 초기화
+        this.places = new kakao.maps.services.Places();
+
+        // 검색 기능 연결
+        this.setupSearch();
+
+        console.log('🎀 Kakao Maps 초기화 완료!');
+    }
+
+    // 📍 현재 위치 가져오기
+    getCurrentLocation() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    const locPosition = new kakao.maps.LatLng(lat, lng);
+
+                    // 지도 중심을 현재 위치로 이동
+                    this.map.setCenter(locPosition);
+
+                    // 현재 위치 마커 추가
+                    this.addCurrentLocationMarker(locPosition);
+                },
+                (error) => {
+                    console.warn('현재 위치를 가져올 수 없습니다:', error);
+                    // 기본 위치 (서울시청) 사용
+                }
+            );
+        }
+    }
+
+    // 🌸 현재 위치 마커 추가
+    addCurrentLocationMarker(position) {
+        const markerImage = new kakao.maps.MarkerImage(
+            'data:image/svg+xml;base64,' + btoa(`
+                <svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="16" cy="16" r="12" fill="#ff69b4" stroke="white" stroke-width="3"/>
+                    <circle cx="16" cy="16" r="6" fill="white"/>
+                    <text x="16" y="20" text-anchor="middle" font-size="12" fill="#ff69b4">💕</text>
+                </svg>
+            `),
+            new kakao.maps.Size(32, 32),
+            {
+                offset: new kakao.maps.Point(16, 16)
+            }
+        );
+
+        const marker = new kakao.maps.Marker({
+            position: position,
+            image: markerImage
+        });
+
+        marker.setMap(this.map);
+
+        // 정보창 추가
+        const infoWindow = new kakao.maps.InfoWindow({
+            content: '<div style="padding:5px; font-size:12px; color:#ff69b4;">💕 현재 위치</div>'
+        });
+
+        // 마커 클릭 시 정보창 표시
+        kakao.maps.event.addListener(marker, 'click', () => {
+            infoWindow.open(this.map, marker);
+        });
+    }
+
+    // 🏷️ 장소 마커 추가
+    addLocationMarker(location) {
+        const position = new kakao.maps.LatLng(location.lat, location.lng);
+        
+        // 카테고리별 마커 색상 및 이모지
+        const categoryStyles = {
+            restaurant: { color: '#ff6b6b', emoji: '🍽️' },
+            cafe: { color: '#4ecdc4', emoji: '☕' },
+            travel: { color: '#45b7d1', emoji: '✈️' },
+            culture: { color: '#96ceb4', emoji: '🎨' },
+            etc: { color: '#feca57', emoji: '📍' }
+        };
+
+        const style = categoryStyles[location.category] || categoryStyles.etc;
+
+        // 헬로키티 테마 마커 이미지 생성
+        const markerImage = new kakao.maps.MarkerImage(
+            'data:image/svg+xml;base64,' + btoa(`
+                <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="20" cy="20" r="18" fill="${style.color}" stroke="white" stroke-width="2"/>
+                    <circle cx="20" cy="20" r="12" fill="white"/>
+                    <text x="20" y="25" text-anchor="middle" font-size="12" fill="${style.color}">${style.emoji}</text>
+                </svg>
+            `),
+            new kakao.maps.Size(40, 40),
+            { offset: new kakao.maps.Point(20, 20) }
+        );
+
+        const marker = new kakao.maps.Marker({
+            position: position,
+            image: markerImage
+        });
+
+        marker.setMap(this.map);
+
+        // 마커에 location 정보 저장
+        marker.locationData = location;
+
+        // 정보창 내용 생성
+        const infoContent = `
+            <div style="padding:10px; min-width:200px;">
+                <h3 style="margin:0 0 5px 0; color:${style.color}; font-size:14px;">
+                    ${style.emoji} ${location.name}
+                </h3>
+                <p style="margin:0 0 5px 0; font-size:12px; color:#666;">
+                    📍 ${location.address || '주소 없음'}
+                </p>
+                <p style="margin:0 0 5px 0; font-size:12px;">
+                    📅 ${location.date} ${location.time || ''}
+                </p>
+                <p style="margin:0 0 5px 0; font-size:12px;">
+                    ⭐ ${location.rating ? '★'.repeat(location.rating) + '☆'.repeat(5-location.rating) : '평점 없음'}
+                </p>
+                ${location.memo ? `<p style="margin:0; font-size:12px; color:#888;">${location.memo}</p>` : ''}
+            </div>
+        `;
+
+        const infoWindow = new kakao.maps.InfoWindow({
+            content: infoContent
+        });
+
+        // 마커 클릭 이벤트
+        kakao.maps.event.addListener(marker, 'click', () => {
+            // 다른 정보창 닫기
+            this.closeAllInfoWindows();
+            
+            // 현재 정보창 열기
+            infoWindow.open(this.map, marker);
+            
+            // 헬로키티 클릭 이벤트 (하트 파티클)
+            this.createHeartParticle(marker);
+        });
+
+        // 마커를 배열에 저장
+        this.markers.push({ marker, infoWindow, location });
+
+        return marker;
+    }
+
+    // 💖 마커 클릭 시 하트 파티클 효과
+    createHeartParticle(marker) {
+        const hearts = ['💖', '💕', '💝', '🌸', '✨', '🎀'];
+        for (let i = 0; i < 3; i++) {
+            setTimeout(() => {
+                const heart = document.createElement('div');
+                heart.textContent = hearts[Math.floor(Math.random() * hearts.length)];
+                heart.style.cssText = `
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    font-size: 1.5rem;
+                    pointer-events: none;
+                    z-index: 9999;
+                    animation: heartFloat 2s ease-out forwards;
+                `;
+                document.body.appendChild(heart);
+                
+                setTimeout(() => document.body.removeChild(heart), 2000);
+            }, i * 100);
+        }
+    }
+
+    // 📍 모든 정보창 닫기
+    closeAllInfoWindows() {
+        this.markers.forEach(item => {
+            if (item.infoWindow) {
+                item.infoWindow.close();
+            }
+        });
+    }
+
+    // 🗺️ 모든 마커 표시
+    displayAllMarkers() {
+        // 기존 마커 제거
+        this.clearMarkers();
+
+        // 현재 필터된 장소들의 마커 추가
+        const filteredLocations = this.getFilteredLocations();
+        filteredLocations.forEach(location => {
+            this.addLocationMarker(location);
+        });
+
+        // 요일별 라인 그리기
+        this.drawDateLines();
+    }
+
+    // 🧹 모든 마커 제거
+    clearMarkers() {
+        this.markers.forEach(item => {
+            item.marker.setMap(null);
+        });
+        this.markers = [];
+    }
+
+    // 🔍 검색 기능 설정
+    setupSearch() {
+        const searchInput = document.getElementById('mainSearchInput');
+        if (!searchInput) return;
+
+        let searchTimeout;
+        let searchResults = [];
+
+        // 검색 결과 드롭다운 생성
+        const searchContainer = searchInput.parentElement;
+        const dropdown = document.createElement('div');
+        dropdown.className = 'search-dropdown';
+        dropdown.style.cssText = `
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+        `;
+        searchContainer.appendChild(dropdown);
+
+        // 입력 시 자동완성 검색
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.trim();
+            
+            // 검색어가 2글자 이상일 때 검색
+            if (query.length >= 2) {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    this.searchPlaces(query, dropdown);
+                }, 300);
+            } else {
+                dropdown.style.display = 'none';
+            }
+        });
+
+        // 검색창 포커스 아웃 시 드롭다운 숨기기
+        searchInput.addEventListener('blur', () => {
+            setTimeout(() => {
+                dropdown.style.display = 'none';
+            }, 200);
+        });
+    }
+
+    // 🔍 장소 검색 (Kakao Places API)
+    searchPlaces(keyword, dropdown) {
+        this.places.keywordSearch(keyword, (data, status) => {
+            if (status === kakao.maps.services.Status.OK) {
+                this.displaySearchResults(data.slice(0, 5), dropdown);
+            } else {
+                dropdown.style.display = 'none';
+            }
+        });
+    }
+
+    // 📋 검색 결과 표시
+    displaySearchResults(results, dropdown) {
+        dropdown.innerHTML = '';
+        
+        if (results.length === 0) {
+            dropdown.style.display = 'none';
+            return;
+        }
+
+        results.forEach(place => {
+            const item = document.createElement('div');
+            item.className = 'search-result-item';
+            item.style.cssText = `
+                padding: 12px 16px;
+                cursor: pointer;
+                border-bottom: 1px solid #f0f0f0;
+                transition: background 0.2s ease;
+            `;
+            
+            // 카테고리에 따른 이모지 결정
+            const categoryEmoji = this.getCategoryEmoji(place.category_name);
+            
+            item.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 16px;">${categoryEmoji}</span>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 500; color: #333; margin-bottom: 2px;">
+                            ${place.place_name}
+                        </div>
+                        <div style="font-size: 12px; color: #666;">
+                            📍 ${place.address_name}
+                        </div>
+                        ${place.phone ? `<div style="font-size: 11px; color: #888;">📞 ${place.phone}</div>` : ''}
+                    </div>
+                </div>
+            `;
+
+            // 호버 효과
+            item.addEventListener('mouseenter', () => {
+                item.style.background = '#f8f9fa';
+            });
+            
+            item.addEventListener('mouseleave', () => {
+                item.style.background = 'white';
+            });
+
+            // 클릭 시 지도로 이동 및 마커 추가
+            item.addEventListener('click', () => {
+                this.selectPlace(place);
+                dropdown.style.display = 'none';
+                document.getElementById('mainSearchInput').value = place.place_name;
+            });
+
+            dropdown.appendChild(item);
+        });
+
+        dropdown.style.display = 'block';
+    }
+
+    // 🏷️ 카테고리별 이모지 결정
+    getCategoryEmoji(categoryName) {
+        if (categoryName.includes('음식')) return '🍽️';
+        if (categoryName.includes('카페')) return '☕';
+        if (categoryName.includes('숙박')) return '🏨';
+        if (categoryName.includes('관광')) return '🗺️';
+        if (categoryName.includes('문화')) return '🎨';
+        if (categoryName.includes('쇼핑')) return '🛍️';
+        if (categoryName.includes('병원')) return '🏥';
+        if (categoryName.includes('학교')) return '🏫';
+        return '📍';
+    }
+
+    // 📍 선택된 장소로 지도 이동
+    selectPlace(place) {
+        const position = new kakao.maps.LatLng(place.y, place.x);
+        
+        // 지도 중심 이동
+        this.map.setCenter(position);
+        this.map.setLevel(3); // 확대
+
+        // 임시 마커 추가 (검색된 위치 표시)
+        this.addTempMarker(place);
+        
+        // 헬로키티 효과
+        setTimeout(() => {
+            this.createSearchEffect();
+        }, 500);
+    }
+
+    // 🌸 임시 마커 추가
+    addTempMarker(place) {
+        // 기존 임시 마커 제거
+        if (this.tempMarker) {
+            this.tempMarker.setMap(null);
+        }
+
+        const position = new kakao.maps.LatLng(place.y, place.x);
+        
+        // 펄싱 마커 이미지
+        const markerImage = new kakao.maps.MarkerImage(
+            'data:image/svg+xml;base64,' + btoa(`
+                <svg width="50" height="50" viewBox="0 0 50 50" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="25" cy="25" r="20" fill="#ff69b4" stroke="white" stroke-width="3" opacity="0.8">
+                        <animate attributeName="r" values="15;25;15" dur="2s" repeatCount="indefinite"/>
+                        <animate attributeName="opacity" values="0.8;0.3;0.8" dur="2s" repeatCount="indefinite"/>
+                    </circle>
+                    <circle cx="25" cy="25" r="12" fill="white"/>
+                    <text x="25" y="30" text-anchor="middle" font-size="12" fill="#ff69b4">🔍</text>
+                </svg>
+            `),
+            new kakao.maps.Size(50, 50),
+            { offset: new kakao.maps.Point(25, 25) }
+        );
+
+        this.tempMarker = new kakao.maps.Marker({
+            position: position,
+            image: markerImage
+        });
+
+        this.tempMarker.setMap(this.map);
+
+        // 정보창 추가
+        const infoWindow = new kakao.maps.InfoWindow({
+            content: `
+                <div style="padding:10px; min-width:200px;">
+                    <h3 style="margin:0 0 5px 0; color:#ff69b4; font-size:14px;">
+                        🔍 ${place.place_name}
+                    </h3>
+                    <p style="margin:0 0 5px 0; font-size:12px; color:#666;">
+                        📍 ${place.address_name}
+                    </p>
+                    ${place.phone ? `<p style="margin:0 0 5px 0; font-size:12px;">📞 ${place.phone}</p>` : ''}
+                    <button onclick="window.app.addSearchedPlace('${place.id}')" 
+                            style="background:#ff69b4; color:white; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; font-size:12px; margin-top:8px;">
+                        💕 추억 장소로 추가
+                    </button>
+                </div>
+            `
+        });
+
+        // 마커 클릭 시 정보창 표시
+        kakao.maps.event.addListener(this.tempMarker, 'click', () => {
+            infoWindow.open(this.map, this.tempMarker);
+        });
+
+        // 5초 후 자동으로 정보창 표시
+        setTimeout(() => {
+            infoWindow.open(this.map, this.tempMarker);
+        }, 500);
+
+        // 임시 마커 정보 저장
+        this.tempMarkerInfo = place;
+    }
+
+    // ✨ 검색 성공 이펙트
+    createSearchEffect() {
+        const effects = ['✨', '🌸', '💕', '🎀'];
+        effects.forEach((effect, index) => {
+            setTimeout(() => {
+                const element = document.createElement('div');
+                element.textContent = effect;
+                element.style.cssText = `
+                    position: fixed;
+                    top: 30%;
+                    left: 50%;
+                    font-size: 2rem;
+                    pointer-events: none;
+                    z-index: 9999;
+                    animation: searchEffect 1.5s ease-out forwards;
+                `;
+                document.body.appendChild(element);
+                
+                setTimeout(() => document.body.removeChild(element), 1500);
+            }, index * 200);
+        });
+    }
+
+    // 🌈 요일별 라인 그리기 (같은 날 방문한 장소들 연결)
+    drawDateLines() {
+        // 기존 라인 제거
+        this.clearPolylines();
+
+        // 날짜별로 장소 그룹화
+        const dateGroups = this.groupLocationsByDate();
+
+        // 각 날짜별로 라인 그리기
+        Object.keys(dateGroups).forEach(date => {
+            const locations = dateGroups[date];
+            
+            // 2개 이상의 장소가 있을 때만 라인 그리기
+            if (locations.length >= 2) {
+                this.drawLineForDate(date, locations);
+            }
+        });
+    }
+
+    // 📅 날짜별로 장소 그룹화
+    groupLocationsByDate() {
+        const groups = {};
+        
+        this.getFilteredLocations().forEach(location => {
+            if (location.date && location.lat && location.lng) {
+                if (!groups[location.date]) {
+                    groups[location.date] = [];
+                }
+                groups[location.date].push(location);
+            }
+        });
+
+        // 각 날짜별로 시간순 정렬
+        Object.keys(groups).forEach(date => {
+            groups[date].sort((a, b) => {
+                const timeA = a.time || '00:00';
+                const timeB = b.time || '00:00';
+                return timeA.localeCompare(timeB);
+            });
+        });
+
+        return groups;
+    }
+
+    // 🎨 특정 날짜의 라인 그리기
+    drawLineForDate(date, locations) {
+        // 날짜로부터 요일 계산
+        const dateObj = new Date(date);
+        const dayOfWeek = dateObj.getDay();
+        const lineColor = this.dayColors[dayOfWeek];
+
+        // 라인 경로 생성
+        const linePath = locations.map(location => 
+            new kakao.maps.LatLng(location.lat, location.lng)
+        );
+
+        // 폴리라인 생성
+        const polyline = new kakao.maps.Polyline({
+            path: linePath,
+            strokeWeight: 4,
+            strokeColor: lineColor,
+            strokeOpacity: 0.8,
+            strokeStyle: 'solid'
+        });
+
+        // 지도에 표시
+        polyline.setMap(this.map);
+
+        // 라인에 마우스 호버 이벤트
+        const overlayPath = new kakao.maps.Polyline({
+            path: linePath,
+            strokeWeight: 12,
+            strokeColor: 'transparent',
+            strokeOpacity: 0
+        });
+
+        overlayPath.setMap(this.map);
+
+        // 정보창 생성 (라인 정보)
+        const infoContent = this.createLineInfoContent(date, locations, dayOfWeek);
+        const infoWindow = new kakao.maps.InfoWindow({
+            content: infoContent,
+            removable: true
+        });
+
+        // 오버레이 패스에 이벤트 추가
+        kakao.maps.event.addListener(overlayPath, 'mouseover', (mouseEvent) => {
+            // 라인 강조
+            polyline.setOptions({
+                strokeWeight: 6,
+                strokeOpacity: 1.0
+            });
+
+            // 정보창 표시
+            const position = mouseEvent.latLng;
+            infoWindow.setPosition(position);
+            infoWindow.open(this.map);
+        });
+
+        kakao.maps.event.addListener(overlayPath, 'mouseout', () => {
+            // 라인 원래 상태로
+            polyline.setOptions({
+                strokeWeight: 4,
+                strokeOpacity: 0.8
+            });
+
+            // 정보창 닫기
+            infoWindow.close();
+        });
+
+        // 폴리라인 저장
+        this.polylines.push({
+            polyline,
+            overlayPath,
+            infoWindow,
+            date,
+            locations
+        });
+    }
+
+    // 📋 라인 정보창 내용 생성
+    createLineInfoContent(date, locations, dayOfWeek) {
+        const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+        const dayName = dayNames[dayOfWeek];
+        const dayColor = this.dayColors[dayOfWeek];
+
+        let timelineHtml = locations.map((location, index) => {
+            const time = location.time || '';
+            const isLast = index === locations.length - 1;
+            
+            return `
+                <div style="display: flex; align-items: center; margin: 4px 0;">
+                    <div style="width: 8px; height: 8px; border-radius: 50%; background: ${dayColor}; margin-right: 8px;"></div>
+                    <div style="flex: 1; font-size: 12px;">
+                        <strong>${time}</strong> ${location.name}
+                    </div>
+                    ${!isLast ? `<div style="color: ${dayColor}; font-size: 10px;">→</div>` : ''}
+                </div>
+            `;
+        }).join('');
+
+        return `
+            <div style="padding: 12px; min-width: 250px; max-width: 300px;">
+                <div style="display: flex; align-items: center; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 6px;">
+                    <div style="width: 12px; height: 12px; border-radius: 50%; background: ${dayColor}; margin-right: 8px;"></div>
+                    <strong style="color: ${dayColor}; font-size: 14px;">
+                        ${date} (${dayName}요일) 데이트 코스
+                    </strong>
+                </div>
+                <div style="font-size: 12px; color: #666; margin-bottom: 6px;">
+                    총 ${locations.length}곳 방문
+                </div>
+                <div style="max-height: 150px; overflow-y: auto;">
+                    ${timelineHtml}
+                </div>
+                <div style="margin-top: 8px; padding-top: 6px; border-top: 1px solid #eee; font-size: 11px; color: #888; text-align: center;">
+                    💕 ${dayName}요일의 추억 라인
+                </div>
+            </div>
+        `;
+    }
+
+    // 🧹 모든 폴리라인 제거
+    clearPolylines() {
+        this.polylines.forEach(item => {
+            item.polyline.setMap(null);
+            if (item.overlayPath) {
+                item.overlayPath.setMap(null);
+            }
+        });
+        this.polylines = [];
+    }
+
+    // 📊 필터된 장소 목록 반환
+    getFilteredLocations() {
+        let filtered = this.locations;
+
+        // 카테고리 필터
+        if (this.activeCategories.size > 0) {
+            filtered = filtered.filter(location =>
+                this.activeCategories.has(location.category)
+            );
+        }
+
+        // 검색어 필터
+        if (this.searchQuery) {
+            const query = this.searchQuery.toLowerCase();
+            filtered = filtered.filter(location =>
+                location.name.toLowerCase().includes(query) ||
+                (location.address && location.address.toLowerCase().includes(query)) ||
+                (location.memo && location.memo.toLowerCase().includes(query))
+            );
+        }
+
+        return filtered;
     }
 
     // Auto-save data periodically
