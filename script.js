@@ -18,6 +18,8 @@ class CoupleFootprintApp {
         this.markers = [];
         this.polylines = [];
         this.mapInitialized = false; // 지도 초기화 상태 추가
+        this.places = null; // Kakao Places 서비스
+        this.searchTimeout = null; // 검색 디바운싱용
         this.dayColors = {
             0: '#ff69b4', // 일요일 - 헬로키티 핑크
             1: '#4285f4', // 월요일 - 파랑
@@ -53,7 +55,21 @@ class CoupleFootprintApp {
         const searchInput = document.getElementById('mainSearchInput');
         if (searchInput) {
             searchInput.addEventListener('input', (e) => {
-                this.handleSearch(e.target.value);
+                this.handlePlaceSearch(e.target.value);
+            });
+            
+            // 검색창 포커스/블러 이벤트
+            searchInput.addEventListener('focus', () => {
+                if (searchInput.value.trim()) {
+                    this.showSearchDropdown();
+                }
+            });
+            
+            searchInput.addEventListener('blur', () => {
+                // 드롭다운 클릭을 위해 약간의 지연
+                setTimeout(() => {
+                    this.hideSearchDropdown();
+                }, 200);
             });
         }
 
@@ -177,6 +193,172 @@ class CoupleFootprintApp {
     handleSearch(query) {
         this.searchQuery = query;
         this.filterLocations();
+    }
+
+    // 새로운 실시간 장소 검색 함수
+    handlePlaceSearch(query) {
+        // 기존 검색도 유지
+        this.handleSearch(query);
+        
+        // 실시간 장소 검색
+        if (this.searchTimeout) {
+            clearTimeout(this.searchTimeout);
+        }
+        
+        if (!query.trim()) {
+            this.hideSearchDropdown();
+            return;
+        }
+        
+        // 500ms 디바운싱
+        this.searchTimeout = setTimeout(() => {
+            this.searchPlaces(query);
+        }, 500);
+    }
+
+    searchPlaces(keyword) {
+        if (!this.places || !keyword.trim()) return;
+        
+        // Kakao Places API로 장소 검색
+        this.places.keywordSearch(keyword, (result, status) => {
+            if (status === kakao.maps.services.Status.OK) {
+                this.displaySearchResults(result);
+            } else if (status === kakao.maps.services.Status.ZERO_RESULT) {
+                this.displayNoResults();
+            } else {
+                console.error('검색 실패:', status);
+                this.hideSearchDropdown();
+            }
+        }, {
+            location: this.map ? this.map.getCenter() : new kakao.maps.LatLng(37.5665, 126.9780),
+            radius: 10000, // 10km 반경
+            size: 10 // 최대 10개 결과
+        });
+    }
+
+    displaySearchResults(places) {
+        const dropdown = document.getElementById('searchDropdown');
+        if (!dropdown) return;
+        
+        dropdown.innerHTML = '';
+        
+        places.forEach(place => {
+            const item = document.createElement('div');
+            item.className = 'search-item';
+            
+            // 카테고리 매핑
+            const category = this.mapKakaoCategory(place.category_name);
+            
+            item.innerHTML = `
+                <div class="search-item-name">${place.place_name}</div>
+                <div class="search-item-address">${place.address_name}</div>
+                ${category ? `<span class="search-item-category">${category.emoji} ${category.name}</span>` : ''}
+            `;
+            
+            // 클릭 이벤트
+            item.addEventListener('click', () => {
+                this.selectPlace(place);
+            });
+            
+            dropdown.appendChild(item);
+        });
+        
+        this.showSearchDropdown();
+    }
+
+    displayNoResults() {
+        const dropdown = document.getElementById('searchDropdown');
+        if (!dropdown) return;
+        
+        dropdown.innerHTML = `
+            <div class="search-item">
+                <div class="search-item-name">검색 결과가 없습니다</div>
+                <div class="search-item-address">다른 키워드로 검색해보세요</div>
+            </div>
+        `;
+        
+        this.showSearchDropdown();
+    }
+
+    selectPlace(place) {
+        // 검색창에 선택된 장소명 입력
+        const searchInput = document.getElementById('mainSearchInput');
+        if (searchInput) {
+            searchInput.value = place.place_name;
+        }
+        
+        // 드롭다운 숨기기
+        this.hideSearchDropdown();
+        
+        // 지도에서 해당 위치로 이동
+        if (this.map) {
+            const position = new kakao.maps.LatLng(place.y, place.x);
+            this.map.setCenter(position);
+            this.map.setLevel(3); // 확대
+            
+            // 임시 마커 표시
+            this.showTemporaryMarker(position, place.place_name);
+        }
+    }
+
+    showTemporaryMarker(position, title) {
+        // 기존 임시 마커 제거
+        if (this.tempMarker) {
+            this.tempMarker.setMap(null);
+        }
+        
+        // 새 임시 마커 생성
+        this.tempMarker = new kakao.maps.Marker({
+            position: position,
+            map: this.map,
+            title: title
+        });
+        
+        // 3초 후 자동 제거
+        setTimeout(() => {
+            if (this.tempMarker) {
+                this.tempMarker.setMap(null);
+                this.tempMarker = null;
+            }
+        }, 3000);
+    }
+
+    mapKakaoCategory(categoryName) {
+        // Kakao API 카테고리를 앱 카테고리로 매핑
+        if (!categoryName) return null;
+        
+        const kakaoCategory = categoryName.toLowerCase();
+        
+        if (kakaoCategory.includes('음식점') || kakaoCategory.includes('카페')) {
+            if (kakaoCategory.includes('카페')) {
+                return this.categories.find(c => c.id === 'cafe');
+            }
+            return this.categories.find(c => c.id === 'restaurant');
+        }
+        
+        if (kakaoCategory.includes('관광') || kakaoCategory.includes('숙박')) {
+            return this.categories.find(c => c.id === 'travel');
+        }
+        
+        if (kakaoCategory.includes('문화') || kakaoCategory.includes('공연') || kakaoCategory.includes('전시')) {
+            return this.categories.find(c => c.id === 'culture');
+        }
+        
+        return this.categories.find(c => c.id === 'etc');
+    }
+
+    showSearchDropdown() {
+        const dropdown = document.getElementById('searchDropdown');
+        if (dropdown) {
+            dropdown.classList.add('show');
+        }
+    }
+
+    hideSearchDropdown() {
+        const dropdown = document.getElementById('searchDropdown');
+        if (dropdown) {
+            dropdown.classList.remove('show');
+        }
     }
 
     filterLocations() {
@@ -646,12 +828,12 @@ class CoupleFootprintApp {
 
         // 지도 생성
         this.map = new kakao.maps.Map(mapContainer, mapOption);
+        
+        // Places 서비스 초기화
+        this.places = new kakao.maps.services.Places();
 
         // 현재 위치 가져기기
         this.getCurrentLocation();
-
-        // Places 서비스 초기화
-        this.places = new kakao.maps.services.Places();
 
         // 검색 기능 연결
         this.setupSearch();
