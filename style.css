@@ -1,5 +1,7 @@
 /* Modern CSS Variables inspired by Magic UI */
 :root {
+  /* Font Family */
+  --font-family: "Pretendard";
   --radius: 0.5rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.15 0 0);
@@ -294,7 +296,7 @@ button[type="submit"]:hover::before {
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--font-family);
   background: linear-gradient(135deg, var(--gradient-from) 0%, var(--gradient-to) 100%);
   background-size: 400% 400%;
   animation: gradientShift 15s ease infinite;
