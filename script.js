@@ -17,6 +17,7 @@ class CoupleFootprintApp {
         this.map = null;
         this.markers = [];
         this.polylines = [];
+        this.mapInitialized = false; // 지도 초기화 상태 추가
         this.dayColors = {
             0: '#ff69b4', // 일요일 - 헬로키티 핑크
             1: '#4285f4', // 월요일 - 파랑
@@ -619,15 +620,21 @@ class CoupleFootprintApp {
 
     // 🗺️ 지도 초기화
     initMap() {
+        // 이미 초기화된 경우 중복 실행 방지
+        if (this.mapInitialized) {
+            console.log('지도가 이미 초기화되었습니다.');
+            return;
+        }
+
         const mapContainer = document.getElementById('map');
         if (!mapContainer) {
             console.error('지도 컨테이너를 찾을 수 없습니다.');
             return;
         }
 
-        // Kakao Maps API가 로드되었는지 확인
+        // Kakao Maps API가 로드되었는지 확인 (한 번만)
         if (typeof kakao === 'undefined' || !kakao.maps) {
-            console.error('Kakao Maps API가 로드되지 않았습니다.');
+            console.error('Kakao Maps API가 로드되지 않았습니다. 페이지를 새로고침해주세요.');
             return;
         }
 
@@ -648,6 +655,9 @@ class CoupleFootprintApp {
 
         // 검색 기능 연결
         this.setupSearch();
+
+        // 초기화 완료 표시
+        this.mapInitialized = true;
 
         console.log('🎀 Kakao Maps 초기화 완료!');
     }
