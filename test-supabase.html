@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase 연결 테스트</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div style="padding: 20px; font-family: Arial, sans-serif;">
+        <h1>🧪 Supabase 연결 테스트</h1>
+        <button id="testConnection" style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">연결 테스트</button>
+        <div id="result" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px; min-height: 50px;"></div>
+        
+        <div style="margin-top: 30px;">
+            <h3>📝 테이블 생성</h3>
+            <button id="createTable" style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer;">locations 테이블 생성</button>
+        </div>
+        
+        <div style="margin-top: 30px;">
+            <h3>➕ 테스트 데이터 추가</h3>
+            <button id="addTestData" style="padding: 10px 20px; background: #ffc107; color: black; border: none; border-radius: 5px; cursor: pointer;">테스트 데이터 추가</button>
+        </div>
+    </div>
+
+    <script>
+        // Supabase 설정
+        const SUPABASE_URL = 'https://yciqltvaqlnxavfwysqv.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InljaXFsdHZhcWxueGF2Znd5c2d2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MTQ5NDYsImV4cCI6MjA3Mjk5MDk0Nn0.5W5MDiz4YzzzB-IpfiGgsFgexj2W1FTbKu7-sOYKWtw';
+
+        const { createClient } = supabase;
+        const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const resultDiv = document.getElementById('result');
+
+        // 연결 테스트
+        document.getElementById('testConnection').addEventListener('click', async () => {
+            try {
+                resultDiv.innerHTML = '🔄 연결 테스트 중...';
+                
+                // 간단한 쿼리로 연결 테스트
+                const { data, error } = await supabaseClient
+                    .from('_supabase_sessions')  // 기본 테이블로 테스트
+                    .select('count', { count: 'exact', head: true });
+
+                if (error && error.code !== 'PGRST116') { // PGRST116은 테이블이 없음을 의미 (정상)
+                    throw error;
+                }
+                
+                resultDiv.innerHTML = `
+                    <div style="color: green;">
+                        ✅ Supabase 연결 성공!<br>
+                        📍 URL: ${SUPABASE_URL}<br>
+                        🔑 API Key: ${SUPABASE_ANON_KEY.substring(0, 50)}...
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div style="color: red;">
+                        ❌ 연결 실패: ${error.message}<br>
+                        상세: ${JSON.stringify(error, null, 2)}
+                    </div>
+                `;
+            }
+        });
+
+        // 테이블 생성
+        document.getElementById('createTable').addEventListener('click', async () => {
+            try {
+                resultDiv.innerHTML = '🔄 테이블 생성 중...';
+                
+                // SQL로 테이블 생성 시도
+                const { data, error } = await supabaseClient.rpc('exec_sql', {
+                    query: `
+                        CREATE TABLE IF NOT EXISTS locations (
+                            id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+                            name VARCHAR(255) NOT NULL,
+                            address TEXT NOT NULL,
+                            latitude DECIMAL(10, 8),
+                            longitude DECIMAL(11, 8),
+                            category VARCHAR(50) NOT NULL,
+                            rating INTEGER CHECK (rating >= 1 AND rating <= 5),
+                            visit_date DATE NOT NULL,
+                            memo TEXT,
+                            photos JSONB DEFAULT '[]'::jsonb,
+                            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                        );
+                    `
+                });
+
+                if (error) {
+                    throw error;
+                }
+                
+                resultDiv.innerHTML = `
+                    <div style="color: green;">
+                        ✅ locations 테이블 생성 완료!
+                    </div>
+                `;
+            } catch (error) {
+                // RPC가 없다면 다른 방법 시도
+                resultDiv.innerHTML = `
+                    <div style="color: orange;">
+                        ⚠️ RPC를 통한 테이블 생성 실패: ${error.message}<br>
+                        💡 Supabase 대시보드에서 SQL 에디터로 직접 실행해주세요.
+                    </div>
+                `;
+            }
+        });
+
+        // 테스트 데이터 추가
+        document.getElementById('addTestData').addEventListener('click', async () => {
+            try {
+                resultDiv.innerHTML = '🔄 테스트 데이터 추가 중...';
+                
+                const testData = {
+                    name: '스타벅스 강남점',
+                    address: '서울특별시 강남구 테헤란로 152',
+                    latitude: 37.5012767,
+                    longitude: 127.0396597,
+                    category: 'cafe',
+                    rating: 4,
+                    visit_date: '2024-01-15',
+                    memo: '분위기 좋고 Wi-Fi 빨라요 ☕'
+                };
+
+                const { data, error } = await supabaseClient
+                    .from('locations')
+                    .insert([testData])
+                    .select();
+
+                if (error) {
+                    throw error;
+                }
+                
+                resultDiv.innerHTML = `
+                    <div style="color: green;">
+                        ✅ 테스트 데이터 추가 완료!<br>
+                        📊 추가된 데이터: ${JSON.stringify(data[0], null, 2)}
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div style="color: red;">
+                        ❌ 데이터 추가 실패: ${error.message}<br>
+                        상세: ${JSON.stringify(error, null, 2)}
+                    </div>
+                `;
+            }
+        });
+
+        // 자동으로 연결 테스트 실행
+        document.getElementById('testConnection').click();
+    </script>
+</body>
+</html>

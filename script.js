@@ -1,3 +1,174 @@
+// Supabase 설정
+const SUPABASE_URL = 'https://yciqltvaqlnxavfwysqv.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InljaXFsdHZhcWxueGF2Znd5c2d2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MTQ5NDYsImV4cCI6MjA3Mjk5MDk0Nn0.5W5MDiz4YzzzB-IpfiGgsFgexj2W1FTbKu7-sOYKWtw';
+
+// Supabase 클라이언트 초기화
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// 데이터베이스 관리 클래스
+class CoupleDB {
+    constructor() {
+        this.supabase = supabaseClient;
+    }
+
+    // 장소 추가
+    async addLocation(locationData) {
+        try {
+            const { data, error } = await this.supabase
+                .from('locations')
+                .insert([{
+                    name: locationData.name,
+                    address: locationData.address,
+                    latitude: locationData.latitude,
+                    longitude: locationData.longitude,
+                    category: locationData.category,
+                    rating: locationData.rating,
+                    visit_date: locationData.visitDate,
+                    memo: locationData.memo,
+                    photos: locationData.photos || [],
+                    created_at: new Date().toISOString()
+                }])
+                .select();
+
+            if (error) throw error;
+            return { success: true, data: data[0] };
+        } catch (error) {
+            console.error('장소 추가 실패:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // 모든 장소 조회
+    async getLocations() {
+        try {
+            const { data, error } = await this.supabase
+                .from('locations')
+                .select('*')
+                .order('visit_date', { ascending: false });
+
+            if (error) throw error;
+            return { success: true, data: data || [] };
+        } catch (error) {
+            console.error('장소 조회 실패:', error);
+            return { success: false, error: error.message, data: [] };
+        }
+    }
+
+    // 장소 수정
+    async updateLocation(id, locationData) {
+        try {
+            const { data, error } = await this.supabase
+                .from('locations')
+                .update({
+                    name: locationData.name,
+                    address: locationData.address,
+                    latitude: locationData.latitude,
+                    longitude: locationData.longitude,
+                    category: locationData.category,
+                    rating: locationData.rating,
+                    visit_date: locationData.visitDate,
+                    memo: locationData.memo,
+                    photos: locationData.photos || [],
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', id)
+                .select();
+
+            if (error) throw error;
+            return { success: true, data: data[0] };
+        } catch (error) {
+            console.error('장소 수정 실패:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // 장소 삭제
+    async deleteLocation(id) {
+        try {
+            const { error } = await this.supabase
+                .from('locations')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+            return { success: true };
+        } catch (error) {
+            console.error('장소 삭제 실패:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // 카테고리별 장소 조회
+    async getLocationsByCategory(category) {
+        try {
+            const { data, error } = await this.supabase
+                .from('locations')
+                .select('*')
+                .eq('category', category)
+                .order('visit_date', { ascending: false });
+
+            if (error) throw error;
+            return { success: true, data: data || [] };
+        } catch (error) {
+            console.error('카테고리별 장소 조회 실패:', error);
+            return { success: false, error: error.message, data: [] };
+        }
+    }
+
+    // 통계 데이터 조회
+    async getStats() {
+        try {
+            const { data, error } = await this.supabase
+                .from('locations')
+                .select('category, rating, visit_date');
+
+            if (error) throw error;
+
+            const stats = {
+                totalVisits: data.length,
+                averageRating: data.length > 0 ? 
+                    (data.reduce((sum, loc) => sum + (parseFloat(loc.rating) || 0), 0) / data.length).toFixed(1) : 0,
+                favoriteCategory: this.getFavoriteCategory(data),
+                recentVisits: this.getRecentVisits(data)
+            };
+
+            return { success: true, data: stats };
+        } catch (error) {
+            console.error('통계 조회 실패:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    getFavoriteCategory(data) {
+        const categoryCount = {};
+        data.forEach(location => {
+            categoryCount[location.category] = (categoryCount[location.category] || 0) + 1;
+        });
+
+        let maxCount = 0;
+        let favoriteCategory = '-';
+        for (const [category, count] of Object.entries(categoryCount)) {
+            if (count > maxCount) {
+                maxCount = count;
+                favoriteCategory = category;
+            }
+        }
+
+        return favoriteCategory;
+    }
+
+    getRecentVisits(data) {
+        const thisMonth = new Date();
+        thisMonth.setDate(1);
+        thisMonth.setHours(0, 0, 0, 0);
+
+        return data.filter(location => {
+            const visitDate = new Date(location.visit_date);
+            return visitDate >= thisMonth;
+        }).length;
+    }
+}
+
 // Modern Couple FootPrint App - JavaScript
 class CoupleFootprintApp {
     constructor() {
@@ -20,6 +191,7 @@ class CoupleFootprintApp {
         this.mapInitialized = false; // 지도 초기화 상태 추가
         this.places = null; // Kakao Places 서비스
         this.searchTimeout = null; // 검색 디바운싱용
+        this.db = new CoupleDB(); // Supabase 데이터베이스
         this.dayColors = {
             0: '#ff69b4', // 일요일 - 헬로키티 핑크
             1: '#4285f4', // 월요일 - 파랑
@@ -361,6 +533,30 @@ class CoupleFootprintApp {
         }
     }
 
+    // 주소를 좌표로 변환
+    async getCoordinatesFromAddress(address) {
+        return new Promise((resolve) => {
+            if (!this.places) {
+                resolve(null);
+                return;
+            }
+
+            const geocoder = new kakao.maps.services.Geocoder();
+            
+            geocoder.addressSearch(address, function(result, status) {
+                if (status === kakao.maps.services.Status.OK) {
+                    resolve({
+                        lat: parseFloat(result[0].y),
+                        lng: parseFloat(result[0].x)
+                    });
+                } else {
+                    console.warn('주소를 좌표로 변환하지 못했습니다:', address);
+                    resolve(null);
+                }
+            });
+        });
+    }
+
     filterLocations() {
         // Filter locations based on active categories and search query
         let filteredLocations = this.locations;
@@ -495,57 +691,97 @@ class CoupleFootprintApp {
         return category ? category.emoji : '📍';
     }
 
-    updateStats(locations) {
+    async updateStats(locations = null) {
+        // 로컬 데이터로 즉시 업데이트
+        const currentLocations = locations || this.locations;
+        
         // Update map stats
         const locationCount = document.getElementById('locationCount');
         const averageRating = document.getElementById('averageRating');
         
         if (locationCount) {
-            locationCount.textContent = `${locations.length}개 장소`;
+            locationCount.textContent = `${currentLocations.length}개 장소`;
         }
 
-        if (averageRating && locations.length > 0) {
-            const avgRating = locations.reduce((sum, loc) => sum + (loc.rating || 0), 0) / locations.length;
+        if (averageRating && currentLocations.length > 0) {
+            const avgRating = currentLocations.reduce((sum, loc) => sum + (parseFloat(loc.rating) || 0), 0) / currentLocations.length;
             averageRating.textContent = `평점 ${avgRating.toFixed(1)}`;
         } else if (averageRating) {
             averageRating.textContent = '평점 -';
         }
 
-        // Update quick stats
-        this.updateQuickStats(locations);
+        // Supabase에서 최신 통계 가져오기 (백그라운드에서)
+        try {
+            const result = await this.db.getStats();
+            if (result.success) {
+                const stats = result.data;
+                
+                // Update with fresh data from DB
+                if (locationCount) {
+                    locationCount.textContent = `${stats.totalVisits}개 장소`;
+                }
+                if (averageRating) {
+                    averageRating.textContent = stats.averageRating > 0 ? 
+                        `평점 ${stats.averageRating}` : '평점 -';
+                }
+                
+                // Update quick stats with DB data
+                this.updateQuickStats(null, stats);
+            }
+        } catch (error) {
+            console.warn('통계 업데이트 실패:', error);
+        }
+
+        // Update quick stats with current data
+        this.updateQuickStats(currentLocations);
     }
 
-    updateQuickStats(locations) {
+    updateQuickStats(locations = null, dbStats = null) {
         const totalVisits = document.getElementById('totalVisits');
         const favoriteCategory = document.getElementById('favoriteCategory');
         const recentVisits = document.getElementById('recentVisits');
 
-        if (totalVisits) {
-            totalVisits.textContent = locations.length;
-        }
+        // DB 통계가 있으면 우선 사용, 없으면 로컬 데이터 사용
+        if (dbStats) {
+            if (totalVisits) {
+                totalVisits.textContent = dbStats.totalVisits;
+            }
+            if (favoriteCategory) {
+                const category = this.categories.find(c => c.id === dbStats.favoriteCategory);
+                favoriteCategory.textContent = category ? category.emoji : '📍';
+            }
+            if (recentVisits) {
+                recentVisits.textContent = dbStats.recentVisits;
+            }
+        } else if (locations) {
+            // 로컬 데이터로 통계 계산
+            if (totalVisits) {
+                totalVisits.textContent = locations.length;
+            }
 
-        if (favoriteCategory) {
-            const categoryCounts = {};
-            locations.forEach(loc => {
-                categoryCounts[loc.category] = (categoryCounts[loc.category] || 0) + 1;
-            });
+            if (favoriteCategory && locations.length > 0) {
+                const categoryCounts = {};
+                locations.forEach(loc => {
+                    categoryCounts[loc.category] = (categoryCounts[loc.category] || 0) + 1;
+                });
 
-            const mostFrequent = Object.keys(categoryCounts).reduce((a, b) => 
-                categoryCounts[a] > categoryCounts[b] ? a : b, '기타'
-            );
+                const mostFrequent = Object.keys(categoryCounts).reduce((a, b) => 
+                    categoryCounts[a] > categoryCounts[b] ? a : b, 'etc'
+                );
 
-            const category = this.categories.find(c => c.id === mostFrequent);
-            favoriteCategory.textContent = category ? category.emoji : '📍';
-        }
+                const category = this.categories.find(c => c.id === mostFrequent);
+                favoriteCategory.textContent = category ? category.emoji : '📍';
+            }
 
-        if (recentVisits) {
-            const thisMonth = new Date();
-            thisMonth.setDate(1);
-            const recentCount = locations.filter(loc => {
-                const visitDate = new Date(loc.visitDate || loc.createdAt);
-                return visitDate >= thisMonth;
-            }).length;
-            recentVisits.textContent = recentCount;
+            if (recentVisits) {
+                const thisMonth = new Date();
+                thisMonth.setDate(1);
+                const recentCount = locations.filter(loc => {
+                    const visitDate = new Date(loc.visit_date || loc.visitDate || loc.createdAt);
+                    return visitDate >= thisMonth;
+                }).length;
+                recentVisits.textContent = recentCount;
+            }
         }
     }
 
@@ -679,13 +915,28 @@ class CoupleFootprintApp {
         }
 
         try {
-            // Here you would typically save to your backend/database
-            // For now, we'll just add to local array
-            locationData.id = Date.now();
-            this.locations.push(locationData);
+            // 주소로부터 좌표 얻기
+            const coordinates = await this.getCoordinatesFromAddress(locationData.address);
+            if (coordinates) {
+                locationData.latitude = coordinates.lat;
+                locationData.longitude = coordinates.lng;
+            }
             
-            // Show success message
-            this.showNotification('새로운 추억이 저장되었습니다! 💕', 'success');
+            // Supabase에 저장
+            const result = await this.db.addLocation(locationData);
+            
+            if (result.success) {
+                // 로컬 배열에도 추가 (실시간 업데이트용)
+                this.locations.push(result.data);
+                
+                // Show success message
+                this.showNotification('새로운 추억이 저장되었습니다! 💕', 'success');
+                
+                // 로컬 스토리지 백업
+                this.saveData();
+            } else {
+                throw new Error(result.error);
+            }
             
             // Close modal and refresh display
             this.closeModal();
@@ -747,15 +998,35 @@ class CoupleFootprintApp {
     }
 
 
-    loadData() {
-        // Load data from localStorage or API
+    async loadData() {
+        // Supabase에서 데이터 로드
+        try {
+            const result = await this.db.getLocations();
+            if (result.success) {
+                this.locations = result.data;
+                console.log(`${this.locations.length}개의 장소를 로드했습니다.`);
+            } else {
+                console.error('데이터 로드 실패:', result.error);
+                // 로컬 스토리지 fallback
+                this.loadFromLocalStorage();
+            }
+        } catch (error) {
+            console.error('데이터베이스 연결 실패:', error);
+            // 로컬 스토리지 fallback
+            this.loadFromLocalStorage();
+        }
+    }
+
+    loadFromLocalStorage() {
         const savedData = localStorage.getItem('footprintData');
         if (savedData) {
             try {
                 const data = JSON.parse(savedData);
                 this.locations = data.locations || [];
+                console.log('로컬 스토리지에서 데이터를 로드했습니다.');
             } catch (error) {
-                console.error('Error loading data:', error);
+                console.error('로컬 스토리지 로드 실패:', error);
+                this.locations = [];
             }
         }
     }
